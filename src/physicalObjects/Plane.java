@@ -53,7 +53,7 @@ public class Plane extends Surface {
     }
 
     public Vector getNormalAtPoint(Vector point) {
-        return new Ray(point, this.normal).getPointAtDistance(1);
+        return this.normal;
     }
 
 }

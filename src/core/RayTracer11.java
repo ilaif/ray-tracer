@@ -300,7 +300,7 @@ public class RayTracer11 {
 
         //light Color for defuse and specular calculations
         Vector lightColorIntensity=lightSource.getColor();
-        if(isObscured(hit,lightSource))
+        if(obscuredBy(hit,lightSource))
             lightColorIntensity=lightColorIntensity.scale(1-lightSource.getShadowIntensity());
 
         //defuse color
@@ -354,7 +354,7 @@ public class RayTracer11 {
         return (finalColor);
     }
 
-    public boolean isObscured(RayHit hit, Light lightSource){
+    public boolean obscuredBy(RayHit hit, Light lightSource){
         Ray transmissionRay = new Ray(hit.getHitPoint(), lightSource.getPos().minus(hit.getHitPoint()));
         if(findClosestIntersection(transmissionRay,hit.getHitObject())!=null)
             return true;

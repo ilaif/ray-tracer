@@ -9,6 +9,7 @@ import java.awt.color.ColorSpace;
 import java.awt.image.*;
 import java.io.File;
 import java.io.IOException;
+import java.util.Random;
 
 public class RayTracer {
 
@@ -102,9 +103,9 @@ public class RayTracer {
                         for (Light lightSource : this.sceneParser.getLights()) {
                             Vector color = findColor(hit, lightSource, 0);
                             accumColor = accumColor.plus(color);
-                            sampledPixels++;
                         }
 
+                        sampledPixels++;
                     }
 
                 }
@@ -173,7 +174,6 @@ public class RayTracer {
         return minHit;
     }
 
-
     public Vector findColor(RayHit hit, Light lightSource, int recDepth) {
         Vector bgColor = this.sceneParser.getSettings().getBgColor();
         if (recDepth == this.sceneParser.getSettings().getMaxRecursion() || hit == null)
@@ -182,6 +182,7 @@ public class RayTracer {
         Vector finalColor = new Vector(0, 0, 0);
 
         recDepth++;
+
         Vector hitPoint = hit.getHitPoint();
         Surface hitObject = hit.getHitObject();
         Material hitObjectMaterial = hitObject.getMaterial();
@@ -189,52 +190,66 @@ public class RayTracer {
         //light Color for defuse and specular calculations
         Vector lightColorIntensity = lightSource.getColor();
         Vector lightPos = lightSource.getPos();
-        if (isObscured(hit, lightSource))
+        RayHit obscuredBy = obscuredBy(hit, lightSource);
+        if (obscuredBy != null && obscuredBy.getHitObject() == hitObject) {
+            //&& obscuredBy.getHitPoint().minus(hit.getHitPoint()).magnitude() > 0.001
+            return finalColor;
+        } else if (obscuredBy != null) {
+            /*double softShadow = getSoftShadow(lightSource, hit, this.sceneParser.getSettings().getRootNumberShadowRays());
+            if (softShadow == 0) {
+                lightColorIntensity = lightColorIntensity.scale(lightSource.getShadowIntensity());
+            } else if (softShadow != 1) {
+                lightColorIntensity = lightColorIntensity.scale(((1 - lightSource.getShadowIntensity()) + softShadow) / 2);
+            }*/
             lightColorIntensity = lightColorIntensity.scale(1 - lightSource.getShadowIntensity());
+        }
 
         //defuse color
-        Vector hitMaterialDefuseColor = hitObjectMaterial.getDiffuseColor();
         Vector hitPointNormal = hitObject.getNormalAtPoint(hitPoint);
         Vector lightVectorDirection = new Vector(hitPoint, lightPos).normalize();
-        double NLCosAngle = hitPointNormal.dot(lightVectorDirection);
+        double NLCosAngle = Math.abs(hitPointNormal.dot(lightVectorDirection));
 
-        double objTransparency = hitObjectMaterial.getTransparency();
+        Vector hitMaterialDefuseColor = hitObjectMaterial.getDiffuseColor();
         Vector defuseColor = hitMaterialDefuseColor.scale(NLCosAngle).mult(lightColorIntensity);
+        double objTransparency = hitObjectMaterial.getTransparency();
         finalColor = finalColor.plus(defuseColor.scale(1 - objTransparency));
 
         //specular color
-//        lightColorIntensity = lightColorIntensity.scale(lightSource.getSpecularIntensity());  // For specular we have intensity
-//        double phongSpecCoef = hitObjectMaterial.getPhongSpecularityCoefficient();
-//        Vector hitMaterialSpecColor = hitObjectMaterial.getSpecularColor();
-//        Vector hitToEyeDirection = hit.getRay().getDirection().negate();
-//        Ray lightToHit = new Ray(lightPos, new Vector(lightPos, hitPoint));
-//        RayHit lightToHitHit = new RayHit(lightToHit, hitObject, hitPoint);
-//        Ray returningLightToHit = lightToHitHit.getReflectionRay();
-//        double VRCosAngle = hitToEyeDirection.dot(returningLightToHit.getDirection());
-//        Vector specColor = hitMaterialSpecColor.scale(Math.pow(VRCosAngle, phongSpecCoef)).mult(lightColorIntensity);
-//        finalColor = finalColor.plus(specColor.scale(1 - objTransparency));
+        lightColorIntensity = lightColorIntensity.scale(lightSource.getSpecularIntensity());  // For specular we have intensity
+        double phongSpecCoef = hitObjectMaterial.getPhongSpecularityCoefficient();
+        Vector hitMaterialSpecColor = hitObjectMaterial.getSpecularColor();
+        Vector hitToEyeDirection = hit.getRay().getDirection().negate();
+        Ray lightToHit = new Ray(lightPos, new Vector(lightPos, hitPoint));
+        RayHit lightToHitHit = new RayHit(lightToHit, hitObject, hitPoint);
+        Ray returningLightToHit = lightToHitHit.getReflectionRay();
+        double VRCosAngle = hitToEyeDirection.dot(returningLightToHit.getDirection());
+        Vector specColor = hitMaterialSpecColor.scale(Math.pow(VRCosAngle, phongSpecCoef)).mult(lightColorIntensity);
+        finalColor = finalColor.plus(specColor.scale(1 - objTransparency));
 
-//        //transmission rays color
-//        Ray hitRay = hit.getRay();
-//        Ray transmissionRay = hit.getTransmissionRay();
-//        RayHit nextTransmissionHit = findClosestIntersection(transmissionRay, hitObject);
-//        if (nextTransmissionHit != null) {
-//            finalColor = finalColor.plus(findColor(nextTransmissionHit, lightSource, recDepth).scale(hitObjectMaterial.getTransparency()));
-//        } else {
-//            finalColor = finalColor.plus(bgColor);
-//        }
-//
-//        //reflective rays color
-//        Vector hitMaterialRefectionColor = hitObjectMaterial.getReflectionColor();
-//        Ray reflectedRay = hit.getReflectionRay();
-//        RayHit nextReflectedHit = findClosestIntersection(reflectedRay, hitObject);
-//        if (nextReflectedHit != null) {
-//            finalColor = finalColor.plus(findColor(nextReflectedHit, lightSource, recDepth).mult(hitMaterialRefectionColor));
-//        } else {
-//            finalColor = finalColor.plus(bgColor);
-//        }
+        //transmission rays color
+        Ray transmissionRay = hit.getTransmissionRay();
+        RayHit nextTransmissionHit = findClosestIntersection(transmissionRay, hitObject);
+        Vector nextColor;
+        if (nextTransmissionHit != null && hitObjectMaterial.getTransparency() > 0) {
+            nextColor = findColor(nextTransmissionHit, lightSource, recDepth);
+            finalColor = finalColor.plus(nextColor.scale(hitObjectMaterial.getTransparency()));
+        } else if (hitObjectMaterial.getTransparency() > 0) {
+            nextColor = bgColor;
+            finalColor = finalColor.plus(nextColor.scale(hitObjectMaterial.getTransparency()));
+        }
 
-        return (finalColor);
+        //reflective rays color
+        Ray reflectedRay = hit.getReflectionRay();
+        RayHit nextReflectedHit = findClosestIntersection(reflectedRay, hitObject);
+        Vector reflectionColor = hitObject.getMaterial().getReflectionColor();
+        if (nextReflectedHit != null) {
+            nextColor = findColor(nextReflectedHit, lightSource, recDepth);
+        } else {
+            nextColor = bgColor;
+        }
+        finalColor = finalColor.plus(nextColor.mult(reflectionColor).scale(lightSource.getSpecularIntensity()));
+
+        return finalColor;
     }
 
     /**
@@ -244,9 +259,35 @@ public class RayTracer {
      * @param lightSource
      * @return
      */
-    public boolean isObscured(RayHit hit, Light lightSource) {
+    public RayHit obscuredBy(RayHit hit, Light lightSource) {
         Ray rayHitToLight = new Ray(hit.getHitPoint(), new Vector(hit.getHitPoint(), lightSource.getPos()));
-        return findClosestIntersection(rayHitToLight, hit.getHitObject()) != null;
+        return findClosestIntersection(rayHitToLight, null);
+    }
+
+    public double getSoftShadow(Light lightSource, RayHit hit, double numShadowRays) {
+        double length = lightSource.getLightRadius();
+        double cellLength = length / numShadowRays;
+
+        Vector lightToHit = new Vector(lightSource.getPos(), hit.getHitPoint()).normalize();
+        Vector x = new Vector(-lightToHit.y(), lightToHit.x(), 0).normalize();
+        Vector groundBase = lightSource.getPos();
+        groundBase = groundBase.minus(lightToHit.scale(length / 2)).minus(x.scale(length / 2));
+
+        Random r = new Random();
+        int cou = 0;
+        for (int i = 0; i < numShadowRays; i++) {
+            for (int j = 0; j < numShadowRays; j++) {
+                double rndI = r.nextDouble();
+                double rndJ = r.nextDouble();
+                Vector cell = groundBase.plus(lightToHit.scale((i + rndI) * cellLength)).plus(x.scale((j + rndJ) * cellLength));
+                Ray ray = new Ray(cell, new Vector(cell, hit.getHitPoint()));
+                RayHit cellToHit = findClosestIntersection(ray, null);
+                if (cellToHit != null && cellToHit.getHitObject() == hit.getHitObject()) {
+                    cou++;
+                }
+            }
+        }
+        return cou / (numShadowRays * numShadowRays);
     }
 
 }

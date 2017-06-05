@@ -4,14 +4,14 @@ import core.*;
 
 public class Triangle extends Surface {
     //Fields
-    private  Vector v1, v2, v3;
-    private  Vector u, v;
-    private  Plane plane;
-    private  Vector normal;
+    private Vector v1, v2, v3;
+    private Vector u, v;
+    private Plane plane;
+    private Vector normal;
 
 
     //Constructor
-    public Triangle(Vector p1, Vector p2, Vector p3,Material material) {
+    public Triangle(Vector p1, Vector p2, Vector p3, Material material) {
         super(material);
         this.v1 = p1;
         this.v2 = p2;
@@ -29,9 +29,11 @@ public class Triangle extends Surface {
 
 
     //Super class methods implementations
-    public  RayHit getIntersection(Ray ray){
+    public RayHit getIntersection(Ray ray) {
         RayHit planeHit = this.plane.getIntersection(ray);
-        if(planeHit == null) return null;
+        if (planeHit == null) {
+            return null;
+        }
 
         double uu, uv, vv, wu, wv, D;
         uu = u.dot(u);
@@ -41,18 +43,22 @@ public class Triangle extends Surface {
 
         wu = w.dot(u);
         wv = w.dot(v);
-        D = uv * uv  - uu * vv;
+        D = uv * uv - uu * vv;
 
         double s, t;
         s = (uv * wv - vv * wu) / D;
-        if(s < 0 || s > 1) return null;
+        if (s < 0 || s > 1) {
+            return null;
+        }
         t = (uv * wu - uu * wv) / D;
-        if(t < 0 || (s + t) > 1) return null;
+        if (t < 0 || (s + t) > 1) {
+            return null;
+        }
 
         return new RayHit(planeHit.getRay(), this, planeHit.getHitPoint());
     }
 
-    public Vector getNormalAtPoint(Vector point){
-        return(this.normal);
+    public Vector getNormalAtPoint(Vector point) {
+        return (this.normal);
     }
 }

@@ -19,7 +19,6 @@ public class Light {
         this.lightRadius = lightRadius;
     }
 
-
     //Getters
     public Vector getPos() {
         return pos;
@@ -40,5 +39,4 @@ public class Light {
     public double getLightRadius() {
         return lightRadius;
     }
-
 }

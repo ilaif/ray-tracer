@@ -185,7 +185,7 @@ public class SceneParser {
             Vector vertex2 = new Vector(Double.parseDouble(line[4]), Double.parseDouble(line[5]), Double.parseDouble(line[6]));
             Vector vertex3 = new Vector(Double.parseDouble(line[7]), Double.parseDouble(line[8]), Double.parseDouble(line[9]));
             //TODO: What if index doesn't exist?
-            Material material = getMaterials().get(Integer.parseInt(line[5]) - 1);
+            Material material = getMaterials().get(Integer.parseInt(line[10]) - 1);
             triangles.add(new Triangle(vertex1, vertex2, vertex3, material));
         }
 
@@ -217,7 +217,7 @@ public class SceneParser {
         BufferedReader br = null;
         FileReader fr = null;
 
-        this.data = new ArrayList<String[]>();
+        this.data = new ArrayList<>();
 
         try {
             fr = new FileReader(filepath);
@@ -229,14 +229,13 @@ public class SceneParser {
 
             while ((sCurrentLine = br.readLine()) != null) {
                 String[] line = sCurrentLine.split("\\s+");
-                if (!line[0].startsWith("#")) {
-                    data.add(line);
+                if (line.length > 0 && !line[0].startsWith("#")) {
+                    this.data.add(line);
                 }
             }
 
         } catch (IOException e) {
             e.printStackTrace();
-
         } finally {
 
             try {
